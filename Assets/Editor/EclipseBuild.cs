@@ -37,6 +37,7 @@ public static class EclipseBuild
         }
 
         pipeline.renderScale = 1f;
+        EnsureRuntimeMaterial();
         GraphicsSettings.defaultRenderPipeline = pipeline;
         QualitySettings.renderPipeline = pipeline;
         EditorUtility.SetDirty(pipeline);
@@ -50,6 +51,21 @@ public static class EclipseBuild
         EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         AssetDatabase.SaveAssets();
         Debug.Log("Eclipse benchmark scene generated: " + ScenePath);
+    }
+
+    private static void EnsureRuntimeMaterial()
+    {
+        EnsureFolder("Assets/Resources");
+        const string materialPath = "Assets/Resources/EclipseLit.mat";
+        if (AssetDatabase.LoadAssetAtPath<Material>(materialPath) != null) return;
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null) throw new Exception("Could not find a URP shader to bundle for Android.");
+
+        var material = new Material(shader) { name = "EclipseLit" };
+        AssetDatabase.CreateAsset(material, materialPath);
+        EditorUtility.SetDirty(material);
     }
 
     private static void EnsureFolder(string path)
