@@ -28,6 +28,26 @@ public sealed class BenchmarkFlight : MonoBehaviour
 
     private void Awake()
     {
+        Application.logMessageReceived += CaptureStartupLog;
+        try
+        {
+            InitializeBenchmark();
+        }
+        catch (System.Exception ex)
+        {
+            startupError = "STARTUP FAILED: " + ex.Message;
+            Debug.LogException(ex);
+        }
+    }
+
+    private void CaptureStartupLog(string condition, string stackTrace, LogType type)
+    {
+        if ((type == LogType.Error || type == LogType.Exception) && string.IsNullOrEmpty(startupError))
+            startupError = "UNITY ERROR: " + condition;
+    }
+
+    private void InitializeBenchmark()
+    {
         Application.targetFrameRate = 60;
         QualitySettings.vSyncCount = 0;
         RenderSettings.fog = true;
