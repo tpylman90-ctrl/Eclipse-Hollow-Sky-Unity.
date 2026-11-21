@@ -37,6 +37,8 @@ public static class EclipseBuild
         }
 
         pipeline.renderScale = 1f;
+        pipeline.supportsHDR = true;
+        pipeline.msaaSampleCount = 2;
         EnsureRuntimeMaterial();
         GraphicsSettings.defaultRenderPipeline = pipeline;
         QualitySettings.renderPipeline = pipeline;
@@ -94,6 +96,7 @@ public static class EclipseBuild
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
+        PlayerSettings.Android.optimizedFramePacing = true;
         // Use the broadly compatible GLES3 path while diagnosing device-side URP rendering.
         PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
         PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });

@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Self-contained flight/rendering smoke test. Uses built-in shapes, with no
@@ -76,6 +78,7 @@ public sealed class BenchmarkFlight : MonoBehaviour
         EclipseWorld.Build(palette);
         CreateCraft();
         CreateCamera();
+        ConfigureVisuals();
     }
 
     private static GameObject Shape(PrimitiveType primitive, string name, Transform parent,
@@ -95,6 +98,15 @@ public sealed class BenchmarkFlight : MonoBehaviour
 
     private void CreateCraft()
     {
+        GameObject detailedCraft = Resources.Load<GameObject>("EclipseRacer");
+        if (detailedCraft != null)
+        {
+            craft = Instantiate(detailedCraft).transform;
+            craft.name = "Eclipse Hovercraft";
+            craft.position = new Vector3(0f, 23f, 0f);
+            return;
+        }
+
         craft = new GameObject("Benchmark Hovercraft").transform;
         craft.position = new Vector3(0f, 23f, 0f);
         Shape(PrimitiveType.Cube, "Main fuselage", craft, Vector3.zero,
@@ -168,6 +180,77 @@ public sealed class BenchmarkFlight : MonoBehaviour
         sun.intensity = 1.3f;
         sun.shadows = LightShadows.Soft;
         sunObject.transform.rotation = Quaternion.Euler(50f, -35f, 0f);
+    }
+
+
+    private void ConfigureVisuals()
+    {
+        Shader skyShader = Shader.Find("Skybox/Procedural");
+        if (skyShader != null)
+        {
+            var sky = new Material(skyShader) { name = "Eclipse Atmosphere" };
+            if (sky.HasProperty("_SkyTint")) sky.SetColor("_SkyTint", new Color(0.48f, 0.66f, 0.82f));
+            if (sky.HasProperty("_GroundColor")) sky.SetColor("_GroundColor", new Color(0.035f, 0.07f, 0.12f));
+            if (sky.HasProperty("_AtmosphereThickness")) sky.SetFloat("_AtmosphereThickness", 1.15f);
+            if (sky.HasProperty("_Exposure")) sky.SetFloat("_Exposure", 1.05f);
+            RenderSettings.skybox = sky;
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.36f, 0.52f, 0.68f);
+            RenderSettings.ambientEquatorColor = new Color(0.22f, 0.33f, 0.47f);
+            RenderSettings.ambientGroundColor = new Color(0.045f, 0.07f, 0.12f);
+        }
+
+        if (followCamera != null)
+        {
+            var cameraData = followCamera.GetUniversalAdditionalCameraData();
+            cameraData.renderPostProcessing = true;
+            cameraData.antialiasing = AntialiasingMode.None;
+            if (skyShader != null) followCamera.clearFlags = CameraClearFlags.Skybox;
+        }
+
+        var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+        var bloom = profile.Add<Bloom>(true);
+        bloom.threshold.value = 1.05f;
+        bloom.intensity.value = 0.85f;
+        bloom.scatter.value = 0.62f;
+
+        var grading = profile.Add<ColorAdjustments>(true);
+        grading.postExposure.value = 0.08f;
+        grading.contrast.value = 12f;
+        grading.saturation.value = 8f;
+
+        var vignette = profile.Add<Vignette>(true);
+        vignette.intensity.value = 0.14f;
+        vignette.smoothness.value = 0.42f;
+
+        var volumeObject = new GameObject("Eclipse Global Post Processing");
+        var volume = volumeObject.AddComponent<Volume>();
+        volume.isGlobal = true;
+        volume.priority = 1f;
+        volume.weight = 1f;
+        volume.profile = profile;
+
+        if (craft != null)
+        {
+            foreach (Renderer renderer in craft.GetComponentsInChildren<Renderer>())
+            {
+                foreach (Material material in renderer.materials)
+                {
+                    if (material.name.Contains("Emitter_Cyan"))
+                    {
+                        material.EnableKeyword("_EMISSION");
+                        if (material.HasProperty("_EmissionColor"))
+                            material.SetColor("_EmissionColor", new Color(0.015f, 0.8f, 1f) * 2.6f);
+                    }
+                    else if (material.name.Contains("Thruster_Orange"))
+                    {
+                        material.EnableKeyword("_EMISSION");
+                        if (material.HasProperty("_EmissionColor"))
+                            material.SetColor("_EmissionColor", new Color(1f, 0.12f, 0.015f) * 2.2f);
+                    }
+                }
+            }
+        }
     }
 
     private void CreateCamera()

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -15,6 +16,8 @@ public static class EclipseWorld
     public static void Build(Material[] palette)
     {
         var root = new GameObject("Eclipse | Skyway District").transform;
+        MakeEmissive(palette[2], new Color(1f, 0.15f, 0.02f) * 2.4f);
+        MakeEmissive(palette[3], new Color(0.015f, 0.72f, 1f) * 2.8f);
         Random.InitState(2407);
 
         // Deep cloud layer gives the course a real sense of height and scale.
@@ -95,6 +98,7 @@ public static class EclipseWorld
                     Shape(PrimitiveType.Cube, "Facade window band", root,
                         new Vector3(x, height * 0.61f - 11f, towerZ - depth * 0.52f),
                         new Vector3(width * 0.72f, 0.28f, 0.14f), palette[3]);
+                    AddWindowGrid(building.transform, palette[3]);
                 }
 
                 // Smaller lit beacons help the player read the flight corridor.
@@ -124,7 +128,7 @@ public static class EclipseWorld
 
         // A sunlit opening in the haze becomes a stable visual horizon cue.
         Shape(PrimitiveType.Sphere, "Horizon glow", root,
-            new Vector3(0f, 64f, 520f), new Vector3(42f, 42f, 4f), palette[6]);
+            new Vector3(0f, 64f, 520f), new Vector3(30f, 30f, 4f), palette[6]);
 
         var sunObject = new GameObject("Eclipse key light");
         var sun = sunObject.AddComponent<Light>();
@@ -154,4 +158,50 @@ public static class EclipseWorld
             Object.Destroy(collider);
         return shape;
     }
+
+    private static void MakeEmissive(Material material, Color emission)
+    {
+        if (material == null || !material.HasProperty("_EmissionColor")) return;
+        material.EnableKeyword("_EMISSION");
+        material.SetColor("_EmissionColor", emission);
+    }
+
+    private static void AddWindowGrid(Transform parent, Material material)
+    {
+        const int columns = 5;
+        const int rows = 16;
+        var vertices = new List<Vector3>(columns * rows * 4);
+        var triangles = new List<int>(columns * rows * 6);
+        for (int row = 0; row < rows; row++)
+        {
+            for (int column = 0; column < columns; column++)
+            {
+                float cx = -0.39f + (column + 0.5f) * 0.78f / columns;
+                float cy = -0.42f + (row + 0.5f) * 0.84f / rows;
+                float hw = 0.78f / columns * 0.30f;
+                float hh = 0.84f / rows * 0.28f;
+                int first = vertices.Count;
+                vertices.Add(new Vector3(cx - hw, cy - hh, -0.508f));
+                vertices.Add(new Vector3(cx - hw, cy + hh, -0.508f));
+                vertices.Add(new Vector3(cx + hw, cy + hh, -0.508f));
+                vertices.Add(new Vector3(cx + hw, cy - hh, -0.508f));
+                triangles.Add(first);
+                triangles.Add(first + 1);
+                triangles.Add(first + 2);
+                triangles.Add(first);
+                triangles.Add(first + 2);
+                triangles.Add(first + 3);
+            }
+        }
+        var mesh = new Mesh { name = "Skyline Window Grid" };
+        mesh.SetVertices(vertices);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateNormals();
+        var windows = new GameObject("Tower window matrix");
+        windows.transform.SetParent(parent, false);
+        windows.isStatic = true;
+        windows.AddComponent<MeshFilter>().sharedMesh = mesh;
+        windows.AddComponent<MeshRenderer>().sharedMaterial = material;
+    }
+
 }
