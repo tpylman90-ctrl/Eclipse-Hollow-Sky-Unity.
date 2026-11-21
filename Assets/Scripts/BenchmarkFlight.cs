@@ -73,7 +73,7 @@ public sealed class BenchmarkFlight : MonoBehaviour
             palette[i].enableInstancing = true;
         }
 
-        CreateWorld();
+        EclipseWorld.Build(palette);
         CreateCraft();
         CreateCamera();
     }
@@ -259,12 +259,10 @@ public sealed class BenchmarkFlight : MonoBehaviour
     private void OnGUI()
     {
         GUI.skin.box.fontSize = Mathf.Clamp(Screen.height / 32, 13, 26);
-        if (!string.IsNullOrEmpty(startupError))
-            GUI.Box(new Rect(12f, 12f, Mathf.Min(Screen.width - 24f, 620f), 70f), startupError);
         if (craft == null) return;
         GUI.skin.box.alignment = TextAnchor.MiddleCenter;
         GUI.Box(new Rect(12f, 12f, Mathf.Min(Screen.width - 24f, 620f), 94f),
-            "ECLIPSE : HOLLOW SKY  |  UNITY URP TEST\n" +
+            "ECLIPSE : HOLLOW SKY  |  SKYWAY RUN\n" +
             "FPS " + fps.ToString("F0") + "  •  Avg " +
             (samples > 0 ? accumulatedFrames / samples : 0f).ToString("F0") +
             "  •  Speed " + speed.ToString("F0") + "  •  y " + craft.position.y.ToString("F0") +
