@@ -15,6 +15,7 @@ public sealed class BenchmarkFlight : MonoBehaviour
     private int samples;
     private float accumulatedFrames;
     private float minFps = 1000f;
+    private string startupError;
     private readonly Material[] palette = new Material[7];
 
     private static readonly Color Midnight = new Color(0.045f, 0.075f, 0.13f);
@@ -36,14 +37,17 @@ public sealed class BenchmarkFlight : MonoBehaviour
         RenderSettings.fogEndDistance = 320f;
         RenderSettings.ambientLight = new Color(0.26f, 0.36f, 0.46f);
 
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null) shader = Shader.Find("Standard");
+        Material bundled = Resources.Load<Material>("EclipseLit");
+        Shader shader = bundled != null ? bundled.shader : null;
+        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
         if (shader == null) shader = Shader.Find("Unlit/Color");
+        if (shader == null) startupError = "Startup error: no compatible render shader was included.";
         Color[] colors = { Midnight, Steel, Orange, Cyan, Glass, Dark, Light };
         for (int i = 0; i < colors.Length; i++)
         {
-            palette[i] = new Material(shader);
-            palette[i].name = "EclipsePalette_" + i;
+            if (shader == null) continue;
+            palette[i] = new Material(shader) { name = "EclipsePalette_" + i };
             if (palette[i].HasProperty("_BaseColor")) palette[i].SetColor("_BaseColor", colors[i]);
             if (palette[i].HasProperty("_Color")) palette[i].SetColor("_Color", colors[i]);
             palette[i].enableInstancing = true;
@@ -63,7 +67,7 @@ public sealed class BenchmarkFlight : MonoBehaviour
         shape.transform.localPosition = localPosition;
         shape.transform.localScale = size;
         shape.transform.localRotation = rotation ?? Quaternion.identity;
-        shape.GetComponent<Renderer>().sharedMaterial = material;
+        if (material != null) shape.GetComponent<Renderer>().sharedMaterial = material;
         Collider collider = shape.GetComponent<Collider>();
         if (collider != null) Destroy(collider);
         return shape;
@@ -149,6 +153,7 @@ public sealed class BenchmarkFlight : MonoBehaviour
     private void CreateCamera()
     {
         GameObject cameraObject = new GameObject("Flight Camera");
+        cameraObject.tag = "MainCamera";
         followCamera = cameraObject.AddComponent<Camera>();
         cameraObject.AddComponent<AudioListener>();
         followCamera.fieldOfView = 72f;
@@ -234,6 +239,9 @@ public sealed class BenchmarkFlight : MonoBehaviour
     private void OnGUI()
     {
         GUI.skin.box.fontSize = Mathf.Clamp(Screen.height / 32, 13, 26);
+        if (!string.IsNullOrEmpty(startupError))
+            GUI.Box(new Rect(12f, 12f, Mathf.Min(Screen.width - 24f, 620f), 70f), startupError);
+        if (craft == null) return;
         GUI.skin.box.alignment = TextAnchor.MiddleCenter;
         GUI.Box(new Rect(12f, 12f, Mathf.Min(Screen.width - 24f, 620f), 94f),
             "ECLIPSE : HOLLOW SKY  |  UNITY URP TEST\n" +
