@@ -94,6 +94,9 @@ public static class EclipseBuild
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
+        // Use the broadly compatible GLES3 path while diagnosing device-side URP rendering.
+        PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+        PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });
         EditorUserBuildSettings.buildAppBundle = false;
         Directory.CreateDirectory(Path.GetDirectoryName(ApkPath));
 
