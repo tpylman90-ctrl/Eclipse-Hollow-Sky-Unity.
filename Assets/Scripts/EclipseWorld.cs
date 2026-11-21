@@ -99,11 +99,12 @@ public static class EclipseWorld
 
                 // Smaller lit beacons help the player read the flight corridor.
                 float beaconX = side * Random.Range(13f, 19f);
+                float beaconZ = z + Random.Range(14f, 32f);
                 Shape(PrimitiveType.Cube, "Route beacon housing", root,
-                    new Vector3(beaconX, 7f, z + Random.Range(14f, 32f)),
+                    new Vector3(beaconX, 7f, beaconZ),
                     new Vector3(0.9f, 5.5f, 0.9f), palette[1]);
                 Shape(PrimitiveType.Sphere, "Route beacon", root,
-                    new Vector3(beaconX, 10f, z + Random.Range(14f, 32f)),
+                    new Vector3(beaconX, 10f, beaconZ),
                     new Vector3(1.5f, 1.5f, 1.5f), palette[2]);
             }
         }
