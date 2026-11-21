@@ -1,6 +1,20 @@
 name: Unity Android APK
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/unity-android.yml'
+      - 'Assets/**'
+      - 'Packages/**'
+      - 'ProjectSettings/**'
+      - 'Blender/**'
+      - '*.blend'
+      - '*.fbx'
+      - '*.glb'
+      - '*.gltf'
+      - '*.obj'
   workflow_dispatch:
 
 permissions:
