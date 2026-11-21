@@ -1,0 +1,30 @@
+name: Unity Source Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Unity project scaffold
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("Packages/manifest.json").read_text())
+          assert "com.unity.render-pipelines.universal" in manifest["dependencies"]
+          assert Path("ProjectSettings/ProjectVersion.txt").read_text().startswith("m_EditorVersion: 6000.3.")
+          for name in ("Assets/Scripts/BenchmarkFlight.cs", "Assets/Editor/EclipseBuild.cs"):
+              assert Path(name).is_file(), name
+          build = Path("Assets/Editor/EclipseBuild.cs").read_text()
+          assert 'BuildAndroid()' in build and 'BuildTarget.Android' in build
+          print("Source scaffold, JSON, and build entrypoint: OK")
+          PY

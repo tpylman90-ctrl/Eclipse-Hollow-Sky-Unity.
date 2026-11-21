@@ -1,0 +1,61 @@
+name: Unity Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: unity-android-main
+  cancel-in-progress: false
+
+jobs:
+  build-apk:
+    name: Unity 6.3 / URP / Android ARM64
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Unity activation secrets before spending build minutes
+        shell: bash
+        run: |
+          if [[ -z "$UNITY_LICENSE" || -z "$UNITY_EMAIL" || -z "$UNITY_PASSWORD" ]]; then
+            echo "::error::Unity CI activation is not configured. Add UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD in repository Settings > Secrets and variables > Actions, following https://game.ci/docs/github/activation/."
+            exit 1
+          fi
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Android-6000.3.27f2-${{ hashFiles('Packages/manifest.json', 'ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-Android-6000.3.27f2-
+      - name: Build ARM64 installable APK
+        uses: game-ci/unity-builder@v5
+        with:
+          unityVersion: 6000.3.27f2
+          targetPlatform: Android
+          androidExportType: androidPackage
+          buildsPath: build
+          buildMethod: EclipseBuild.BuildAndroid
+      - name: Confirm exact APK output
+        shell: bash
+        run: test -s build/Android/Eclipse-Hollow-Sky-Unity.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eclipse-Hollow-Sky-Unity-APK
+          path: build/Android/Eclipse-Hollow-Sky-Unity.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish direct APK in a test prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "unity-test-${{ github.run_number }}"             build/Android/Eclipse-Hollow-Sky-Unity.apk             --target "${{ github.sha }}"             --title "Unity Android Test #${{ github.run_number }}"             --notes "Unity 6.3 LTS Android ARM64 prototype, generated from ${{ github.sha }}. This is a benchmark build, not a production release."             --prerelease
