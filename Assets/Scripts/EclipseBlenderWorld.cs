@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 /// <summary>
 /// Loads the Blender-authored Unity asset library for the short skyway run.
@@ -8,6 +9,7 @@ using UnityEngine;
 /// </summary>
 public static class EclipseBlenderWorld
 {
+    private static readonly Dictionary<string, Material> RuntimeMaterials = new Dictionary<string, Material>();
     private const int RoadSegments = 16;
     private const float SegmentLength = 39f;
 
@@ -23,6 +25,7 @@ public static class EclipseBlenderWorld
             return false;
         }
 
+        ConfigureSkyAndLighting();
         var root = new GameObject("Eclipse | Blender Skyway District").transform;
         var rng = new System.Random(2407);
         var roadBatchRoot = new GameObject("Eclipse | Road Static Batch").transform;
@@ -37,6 +40,7 @@ public static class EclipseBlenderWorld
             road.name = "Blender road segment " + i.ToString("00");
             road.transform.localPosition = new Vector3(0f, 0f, z);
             MarkStatic(road);
+            ApplyRuntimeMaterials(road);
             EnableNeon(road);
         }
 
@@ -66,6 +70,7 @@ public static class EclipseBlenderWorld
                 tower.transform.localScale = new Vector3(widthScale, heightScale, depthScale);
                 tower.transform.localRotation = Quaternion.Euler(0f, side * (float)rng.NextDouble() * 9f, 0f);
                 MarkStatic(tower);
+                ApplyRuntimeMaterials(tower);
                 EnableNeon(tower);
             }
         }
@@ -107,7 +112,177 @@ public static class EclipseBlenderWorld
         });
         lodGroup.RecalculateBounds();
         MarkStatic(building);
+        ApplyRuntimeMaterials(building);
         EnableNeon(building);
+    }
+
+    private static void ConfigureSkyAndLighting()
+    {
+        RenderSettings.ambientMode = AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.46f, 0.60f, 0.78f);
+        RenderSettings.ambientEquatorColor = new Color(0.28f, 0.39f, 0.56f);
+        RenderSettings.ambientGroundColor = new Color(0.10f, 0.14f, 0.25f);
+        RenderSettings.ambientIntensity = 1.15f;
+        RenderSettings.fog = true;
+        RenderSettings.fogMode = FogMode.Linear;
+        RenderSettings.fogColor = new Color(0.30f, 0.39f, 0.55f);
+        RenderSettings.fogStartDistance = 180f;
+        RenderSettings.fogEndDistance = 720f;
+
+        var sunObject = new GameObject("Eclipse | Skyway key light");
+        var sun = sunObject.AddComponent<Light>();
+        sun.type = LightType.Directional;
+        sun.color = new Color(0.72f, 0.84f, 1.0f);
+        sun.intensity = 1.45f;
+        sun.shadows = LightShadows.Soft;
+        sunObject.transform.rotation = Quaternion.Euler(38f, -28f, 0f);
+        RenderSettings.sun = sun;
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader == null) return;
+
+        Material cloudMaterial = new Material(shader) { name = "Eclipse | Cloud Sea" };
+        SetColor(cloudMaterial, new Color(0.085f, 0.15f, 0.28f));
+        cloudMaterial.enableInstancing = true;
+        GameObject sea = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        sea.name = "Eclipse | Cloud Sea Horizon";
+        sea.transform.position = new Vector3(0f, -52f, 260f);
+        sea.transform.localScale = new Vector3(180f, 1f, 180f);
+        sea.GetComponent<Renderer>().sharedMaterial = cloudMaterial;
+        Collider seaCollider = sea.GetComponent<Collider>();
+        if (seaCollider != null) UnityEngine.Object.Destroy(seaCollider);
+
+        Material cloudBank = new Material(shader) { name = "Eclipse | Soft Cloud Banks" };
+        SetColor(cloudBank, new Color(0.14f, 0.22f, 0.36f));
+        cloudBank.enableInstancing = true;
+        var rng = new System.Random(813);
+        for (int i = 0; i < 18; i++)
+        {
+            int side = i % 2 == 0 ? -1 : 1;
+            GameObject cloud = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            cloud.name = "Eclipse | Distant cloud bank";
+            cloud.transform.position = new Vector3(
+                side * (75f + (float)rng.NextDouble() * 115f),
+                -36f - (float)rng.NextDouble() * 14f,
+                -30f + i * 36f);
+            cloud.transform.localScale = new Vector3(
+                38f + (float)rng.NextDouble() * 58f,
+                7f + (float)rng.NextDouble() * 8f,
+                30f + (float)rng.NextDouble() * 45f);
+            cloud.GetComponent<Renderer>().sharedMaterial = cloudBank;
+            Collider collider = cloud.GetComponent<Collider>();
+            if (collider != null) UnityEngine.Object.Destroy(collider);
+        }
+    }
+
+    private static void ApplyRuntimeMaterials(GameObject root)
+    {
+        Texture2D facade = Resources.Load<Texture2D>("EclipseWorld/Eclipse_FacadeAtlas");
+        foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            Material[] source = renderer.sharedMaterials;
+            if (source == null || source.Length == 0) continue;
+            var replacement = new Material[source.Length];
+            bool changed = false;
+            for (int i = 0; i < source.Length; i++)
+            {
+                if (source[i] == null) { replacement[i] = null; continue; }
+                Material runtime = GetRuntimeMaterial(source[i].name, facade);
+                replacement[i] = runtime != null ? runtime : source[i];
+                changed |= runtime != null;
+            }
+            if (changed) renderer.sharedMaterials = replacement;
+        }
+    }
+
+    private static Material GetRuntimeMaterial(string sourceName, Texture2D facade)
+    {
+        if (RuntimeMaterials.TryGetValue(sourceName, out Material cached)) return cached;
+
+        bool isNeon = sourceName.Contains("Eclipse_Neon");
+        Shader shader = Shader.Find(isNeon
+            ? "Universal Render Pipeline/Unlit"
+            : "Universal Render Pipeline/Lit");
+        if (shader == null) shader = Shader.Find("Unlit/Color");
+        if (shader == null) return null;
+
+        Color baseColor = new Color(0.16f, 0.27f, 0.40f);
+        float metallic = 0.30f;
+        float smoothness = 0.28f;
+        if (sourceName.Contains("Facade_BakedColor"))
+        {
+            baseColor = Color.white;
+            metallic = 0f;
+            smoothness = 0.18f;
+        }
+        else if (sourceName.Contains("Brushed_Titanium"))
+        {
+            baseColor = new Color(0.52f, 0.67f, 0.76f);
+            metallic = 0.48f;
+            smoothness = 0.42f;
+        }
+        else if (sourceName.Contains("Dark_Glass"))
+        {
+            baseColor = new Color(0.06f, 0.19f, 0.29f);
+            metallic = 0.20f;
+            smoothness = 0.56f;
+        }
+        else if (sourceName.Contains("Road_Carbon"))
+        {
+            baseColor = new Color(0.09f, 0.14f, 0.22f);
+            metallic = 0.24f;
+            smoothness = 0.32f;
+        }
+        else if (sourceName.Contains("Eclipse_Ceramic_Blue"))
+        {
+            baseColor = new Color(0.18f, 0.30f, 0.45f);
+            metallic = 0.30f;
+            smoothness = 0.30f;
+        }
+        else if (sourceName.Contains("Neon_Amber"))
+        {
+            baseColor = new Color(1f, 0.25f, 0.06f);
+            metallic = 0f;
+        }
+        else if (sourceName.Contains("Neon_Cyan"))
+        {
+            baseColor = new Color(0.02f, 0.70f, 1f);
+            metallic = 0f;
+        }
+        else return null;
+
+        var material = new Material(shader) { name = sourceName + " | Eclipse URP" };
+        SetColor(material, baseColor);
+        if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", metallic);
+        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", smoothness);
+        material.enableInstancing = true;
+
+        if (sourceName.Contains("Facade_BakedColor") && facade != null)
+        {
+            if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", facade);
+            if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", facade);
+            if (material.HasProperty("_EmissionMap")) material.SetTexture("_EmissionMap", facade);
+            if (material.HasProperty("_EmissionColor"))
+            {
+                material.SetColor("_EmissionColor", Color.white * 0.72f);
+                material.EnableKeyword("_EMISSION");
+            }
+        }
+        else if (isNeon && material.HasProperty("_EmissionColor"))
+        {
+            material.SetColor("_EmissionColor", baseColor * 1.7f);
+            material.EnableKeyword("_EMISSION");
+        }
+
+        RuntimeMaterials.Add(sourceName, material);
+        return material;
+    }
+
+    private static void SetColor(Material material, Color color)
+    {
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
     }
 
     private static void MarkStatic(GameObject root)
