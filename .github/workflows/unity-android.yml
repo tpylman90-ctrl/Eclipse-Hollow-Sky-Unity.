@@ -115,7 +115,7 @@ jobs:
           unityVersion: ${{ inputs.unity-version }}
           targetPlatform: Android
           androidExportType: androidPackage
-          buildsPath: Builds
+          buildsPath: target-project/Builds
           buildMethod: ${{ inputs.build-method }}
           versioning: Custom
           version: 0.1.${{ github.run_number }}
