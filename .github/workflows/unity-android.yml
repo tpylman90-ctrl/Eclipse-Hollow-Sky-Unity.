@@ -105,7 +105,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: target-project/${{ inputs.project-path }}/Library
-          key: Unity-Library-${{ inputs.unity-version }}-Android-${{ hashFiles(format('target-project/{0}/Packages/manifest.json', inputs.project-path), format('target-project/{0}/ProjectSettings/ProjectVersion.txt', inputs.project-path)) }}
+          key: Unity-Library-${{ inputs.unity-version }}-Android-${{ hashFiles('target-project/**/Packages/manifest.json', 'target-project/**/ProjectVersion.txt') }}
           restore-keys: |
             Unity-Library-${{ inputs.unity-version }}-Android-
       - name: Build the selected project
