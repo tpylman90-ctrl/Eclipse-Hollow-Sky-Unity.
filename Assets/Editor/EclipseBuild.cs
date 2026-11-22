@@ -21,6 +21,8 @@ public static class EclipseBuild
     {
         EnsureFolder("Assets/Scenes");
         EnsureFolder("Assets/Settings");
+        EnsureFolder("Assets/Resources/EclipseWorld");
+        EnsureFacadeAtlas();
 
         UniversalRendererData renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(RendererPath);
         if (renderer == null)
@@ -53,6 +55,58 @@ public static class EclipseBuild
         EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         AssetDatabase.SaveAssets();
         Debug.Log("Eclipse benchmark scene generated: " + ScenePath);
+    }
+
+    private static void EnsureFacadeAtlas()
+    {
+        const string source = "Blender/EclipseWorld/Eclipse_FacadeAtlas.png.base64";
+        const string texturePath = "Assets/Resources/EclipseWorld/Eclipse_FacadeAtlas.png";
+        if (!File.Exists(source))
+        {
+            Debug.LogWarning("Eclipse facade atlas source is missing; imported models will use their base colors.");
+            return;
+        }
+
+        byte[] png = Convert.FromBase64String(File.ReadAllText(source).Trim());
+        string absoluteTexturePath = Path.GetFullPath(texturePath);
+        bool changed = !File.Exists(absoluteTexturePath);
+        if (!changed)
+        {
+            byte[] existing = File.ReadAllBytes(absoluteTexturePath);
+            changed = existing.Length != png.Length;
+            if (!changed)
+                for (int i = 0; i < png.Length; i++)
+                    if (existing[i] != png[i]) { changed = true; break; }
+        }
+        if (changed) File.WriteAllBytes(absoluteTexturePath, png);
+
+        AssetDatabase.ImportAsset(texturePath, ImportAssetOptions.ForceUpdate);
+        var importer = AssetImporter.GetAtPath(texturePath) as TextureImporter;
+        if (importer != null)
+        {
+            importer.wrapMode = TextureWrapMode.Repeat;
+            importer.filterMode = FilterMode.Trilinear;
+            importer.mipmapEnabled = true;
+            importer.maxTextureSize = 256;
+            importer.textureCompression = TextureImporterCompression.Compressed;
+            var android = importer.GetPlatformTextureSettings("Android");
+            android.name = "Android";
+            android.overridden = true;
+            android.maxTextureSize = 256;
+            android.format = TextureImporterFormat.ETC2_RGB4;
+            android.compressionQuality = 70;
+            importer.SetPlatformTextureSettings(android);
+            importer.SaveAndReimport();
+        }
+
+        foreach (string model in new[]
+        {
+            "Assets/Resources/EclipseWorld/StandardTower.obj",
+            "Assets/Resources/EclipseWorld/HeroTowerA.obj",
+            "Assets/Resources/EclipseWorld/HeroTowerB.obj",
+            "Assets/Resources/EclipseWorld/RoadSegment.obj"
+        })
+            AssetDatabase.ImportAsset(model, ImportAssetOptions.ForceUpdate);
     }
 
     private static void EnsureRuntimeMaterial()

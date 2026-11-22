@@ -15,6 +15,7 @@ public static class EclipseWorld
 
     public static void Build(Material[] palette)
     {
+        if (EclipseBlenderWorld.TryBuild()) return;
         var root = new GameObject("Eclipse | Skyway District").transform;
         MakeEmissive(palette[2], new Color(1f, 0.15f, 0.02f) * 2.4f);
         MakeEmissive(palette[3], new Color(0.015f, 0.72f, 1f) * 2.8f);
