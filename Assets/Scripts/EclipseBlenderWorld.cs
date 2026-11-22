@@ -25,18 +25,19 @@ public static class EclipseBlenderWorld
 
         var root = new GameObject("Eclipse | Blender Skyway District").transform;
         var rng = new System.Random(2407);
-        var roadBatchRoots = new List<GameObject>();
-        var distantBatchRoots = new List<GameObject>();
+        var roadBatchRoot = new GameObject("Eclipse | Road Static Batch").transform;
+        roadBatchRoot.SetParent(root, false);
+        var distantBatchRoot = new GameObject("Eclipse | Skyline Static Batch").transform;
+        distantBatchRoot.SetParent(root, false);
 
         for (int i = 0; i < RoadSegments; i++)
         {
             float z = -SegmentLength + i * SegmentLength;
-            GameObject road = UnityEngine.Object.Instantiate(roadPrefab, root);
+            GameObject road = UnityEngine.Object.Instantiate(roadPrefab, roadBatchRoot);
             road.name = "Blender road segment " + i.ToString("00");
             road.transform.localPosition = new Vector3(0f, 0f, z);
             MarkStatic(road);
             EnableNeon(road);
-            roadBatchRoots.Add(road);
         }
 
         // Near-route landmarks use modeled geometry with a textured low-detail
@@ -59,20 +60,20 @@ public static class EclipseBlenderWorld
                 float heightScale = 0.85f + (float)rng.NextDouble() * 2.35f;
                 float widthScale = 0.82f + (float)rng.NextDouble() * 0.52f;
                 float depthScale = 0.82f + (float)rng.NextDouble() * 0.52f;
-                GameObject tower = UnityEngine.Object.Instantiate(standardPrefab, root);
+                GameObject tower = UnityEngine.Object.Instantiate(standardPrefab, distantBatchRoot);
                 tower.name = "Atlas skyline tower " + i.ToString("00") + (side < 0 ? " L" : " R");
                 tower.transform.localPosition = new Vector3(x, -11f, z + (float)rng.NextDouble() * 18f);
                 tower.transform.localScale = new Vector3(widthScale, heightScale, depthScale);
                 tower.transform.localRotation = Quaternion.Euler(0f, side * (float)rng.NextDouble() * 9f, 0f);
                 MarkStatic(tower);
                 EnableNeon(tower);
-                distantBatchRoots.Add(tower);
             }
         }
 
-        MarkStatic(root.gameObject);
-        if (roadBatchRoots.Count > 0) StaticBatchingUtility.Combine(roadBatchRoots.ToArray());
-        if (distantBatchRoots.Count > 0) StaticBatchingUtility.Combine(distantBatchRoots.ToArray());
+        MarkStatic(roadBatchRoot.gameObject);
+        MarkStatic(distantBatchRoot.gameObject);
+        StaticBatchingUtility.Combine(roadBatchRoot.gameObject);
+        StaticBatchingUtility.Combine(distantBatchRoot.gameObject);
         return true;
     }
 
