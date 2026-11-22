@@ -23,6 +23,8 @@ jobs:
           grep -q "workflow_dispatch:" .github/workflows/build-project.yml
           grep -q "tpylman90-ctrl/Flight-unity" .github/workflows/build-project.yml
           grep -q "game-ci/unity-builder@v6" .github/workflows/build-project.yml
+          grep -q "apt-get install -y blender" .github/workflows/build-project.yml
+          grep -q "generate_building.py" .github/workflows/build-project.yml
           grep -q "secrets.UNITY_LICENSE" .github/workflows/build-project.yml
           grep -q "actions/upload-artifact@v4" .github/workflows/build-project.yml
           grep -q "Flight-unity" README.md
