@@ -117,6 +117,8 @@ jobs:
           androidExportType: androidPackage
           buildsPath: Builds
           buildMethod: ${{ inputs.build-method }}
+          versioning: Custom
+          version: 0.1.${{ github.run_number }}
       - name: Confirm APK output
         env:
           APK_PATH: ${{ inputs.apk-path }}
