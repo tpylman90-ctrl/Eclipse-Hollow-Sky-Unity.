@@ -119,6 +119,7 @@ jobs:
           buildMethod: ${{ inputs.build-method }}
           versioning: Custom
           version: 0.1.${{ github.run_number }}
+          cliVersion: 0.1.77
       - name: Confirm APK output
         env:
           APK_PATH: ${{ inputs.apk-path }}
