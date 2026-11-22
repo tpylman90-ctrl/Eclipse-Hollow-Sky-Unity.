@@ -1,29 +1,40 @@
-# Unity Android Build Foundation
+# Eclipse Hollow Sky — Unity Build Runner
 
-This repository is the shared GitHub Actions runner for Unity Android projects. Unity source, Blender authoring files, and game assets live in each project's own repository. The runner checks out a selected project, builds an Android ARM64 APK with Unity 6.3, and stores it as a workflow artifact.
+This repository is the shared Unity build machine for our projects. It owns the Unity license secrets and runs Android builds from source held in separate game repositories.
 
-## Build the first inspection project
+## Build a project
 
-The current project is [Flight-unity](https://github.com/tpylman90-ctrl/Flight-unity).
+1. Open **Actions > Build Unity Project Android APK > Run workflow** in this repository.
+2. Enter the target project's `owner/repository`, branch, Unity version, and static build method. The default values are ready for [the first building-inspection project](https://github.com/tpylman90-ctrl/Unity-project-).
+3. Start the run. This workflow checks out that project, builds an Android ARM64 APK with this repository's Unity secrets, and stores the APK here as a workflow artifact. The optional prerelease is enabled by default and is also published here.
 
-1. Keep `UNITY_LICENSE`, `UNITY_EMAIL`, and `UNITY_PASSWORD` in **this runner repository's** Settings > Secrets and variables > Actions.
-2. Open **Actions > Build Selected Unity Project > Run workflow**.
-3. Use the defaults to build `tpylman90-ctrl/Flight-unity` from `main`.
-4. Download the APK from the workflow run's **Artifacts** section.
+The game source stays in the game repository. It does not need its own Unity license secrets.
 
-This central workflow uses the runner repository's existing Unity activation secrets. The project repository does not need a second copy. Public project repositories work with the default checkout token. For a private project, add a read-only GitHub token with access to that project as the `PROJECTS_READ_TOKEN` secret in this runner repository.
+## Unity license and repository access
 
-## Add future Unity projects
+The build uses `UNITY_LICENSE`, `UNITY_EMAIL`, and `UNITY_PASSWORD` from **this repository's** Actions secrets. These are already configured for this runner. Do not copy them into game repositories or commit them to source.
 
-Store each project in its own repository with a Unity `Packages/manifest.json`, a matching `ProjectSettings/ProjectVersion.txt`, and a static editor build method. Run **Build Selected Unity Project** and enter the repository, ref, Unity version, build method, and artifact name. Keep game-specific source and assets out of this runner.
+Public project repositories can be checked out directly. For a private project repository, add a read-only `PROJECT_REPO_TOKEN` secret here so the runner can check it out.
 
-The reusable workflow at `.github/workflows/unity-android.yml` is also available for projects that prefer to call the runner from their own Actions workflow. That option receives the caller repository's secrets; the central manual workflow above is the path that keeps activation secrets here.
+## Build inputs
 
-## Current project
+| Input | Purpose |
+| --- | --- |
+| `project-repository` | GitHub `owner/repository` containing the Unity project |
+| `project-branch` | Branch to build |
+| `project-path` | Unity project root within that repository |
+| `unity-version` | Exact Unity Editor version, including suffix |
+| `build-method` | Static editor method that prepares and builds the project |
+| `apk-path` | APK path produced by that method |
+| `artifact-name` | Workflow artifact name |
+| `publish-prerelease` | Attach the APK to a test prerelease in this build repository |
 
-- **Runner:** this repository; Unity build workflow and Unity activation secrets.
-- **First project:** [Flight-unity](https://github.com/tpylman90-ctrl/Flight-unity); one ground-based Blender building and Android inspection viewer.
+For another project, set its build method and APK path to match the code in that project. The optional private-repository token needs only read access.
 
-## Local development
+## What stays here
 
-Open a game project with the Unity version in its `ProjectVersion.txt`. Install Android Build Support, SDK/NDK Tools, and OpenJDK through Unity Hub. The GitHub workflow provides repeatable Android builds and a downloadable APK artifact.
+- `.github/workflows/unity-android.yml`: central manual build and APK publishing workflow.
+- `.github/workflows/source-checks.yml`: checks that this repository contains only shared build infrastructure.
+- The Unity license secrets and optional private-project checkout token.
+
+Game code, Blender source files, and generated assets belong in their respective game repositories.

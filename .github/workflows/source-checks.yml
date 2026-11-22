@@ -1,4 +1,4 @@
-name: Unity Runner Source Checks
+name: Unity Build Runner Source Checks
 
 on:
   push:
@@ -10,24 +10,26 @@ permissions:
   contents: read
 
 jobs:
-  validate-runner:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify runner and project split
-        shell: bash
+      - name: Check central runner configuration
         run: |
-          test -f .github/workflows/unity-android.yml
-          test -f .github/workflows/build-project.yml
-          grep -q "workflow_call:" .github/workflows/unity-android.yml
-          grep -q "workflow_dispatch:" .github/workflows/build-project.yml
-          grep -q "tpylman90-ctrl/Flight-unity" .github/workflows/build-project.yml
-          grep -q "game-ci/unity-builder@v6" .github/workflows/build-project.yml
-          grep -q "apt-get install -y blender" .github/workflows/build-project.yml
-          grep -q "generate_building.py" .github/workflows/build-project.yml
-          grep -q "secrets.UNITY_LICENSE" .github/workflows/build-project.yml
-          grep -q "actions/upload-artifact@v4" .github/workflows/build-project.yml
-          grep -q "Flight-unity" README.md
-          test ! -e Assets
-          test ! -e Blender
-          echo "Central Unity runner configuration: OK"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path(".github/workflows/unity-android.yml").read_text()
+          readme = Path("README.md").read_text()
+
+          assert "workflow_dispatch:" in workflow
+          assert "secrets.UNITY_LICENSE" in workflow
+          assert "inputs.project-repository" in workflow
+          assert "game-ci/unity-builder@v6" in workflow
+          assert "actions/upload-artifact@v4" in workflow
+          assert "PROJECT_REPO_TOKEN" in workflow
+          assert "Unity-project-" in readme
+          assert not Path("Assets").exists()
+          assert not Path("Blender").exists()
+          print("Central Unity build runner layout: OK")
+          PY

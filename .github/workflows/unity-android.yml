@@ -1,49 +1,59 @@
-name: Reusable Unity Android Build
+name: Build Unity Project Android APK
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
-      unity-version:
-        description: Exact Unity Editor version, including revision suffix.
+      project-repository:
+        description: GitHub owner/repository containing the Unity project
         required: true
+        default: tpylman90-ctrl/Unity-project-
+        type: string
+      project-branch:
+        description: Branch to build from
+        required: true
+        default: main
         type: string
       project-path:
-        description: Path to the Unity project root inside the caller repository.
-        required: false
+        description: Path to the Unity project root inside that repository
+        required: true
         default: .
         type: string
-      build-method:
-        description: Static Unity Editor build method, for example BuildScript.BuildAndroid.
+      unity-version:
+        description: Exact Unity Editor version including its release suffix
         required: true
+        default: 6000.3.27f2
+        type: string
+      build-method:
+        description: Static Unity Editor build method
+        required: true
+        default: UnityViewingBuild.BuildAndroid
         type: string
       apk-path:
-        description: Exact APK file path written by the project's build method.
+        description: APK output path relative to this workflow workspace
         required: true
+        default: target-project/Builds/Android/Eclipse-Building-Inspector.apk
         type: string
       artifact-name:
-        description: Name shown for the uploaded APK artifact.
-        required: false
-        default: Unity-Android-APK
+        description: Name for the uploaded APK artifact
+        required: true
+        default: Eclipse-Building-Inspector-APK
         type: string
       publish-prerelease:
-        description: Publish this build as a GitHub prerelease in the caller repository.
-        required: false
-        default: false
+        description: Attach the APK to a test prerelease in this build repository
+        required: true
+        default: true
         type: boolean
-    secrets:
-      UNITY_LICENSE:
-        required: true
-      UNITY_EMAIL:
-        required: true
-      UNITY_PASSWORD:
-        required: true
 
 permissions:
   contents: read
 
+concurrency:
+  group: unity-android-${{ inputs.project-repository }}-${{ inputs.project-branch }}
+  cancel-in-progress: false
+
 jobs:
   build:
-    name: Unity Android ARM64
+    name: Build ${{ inputs.project-repository }} for Android ARM64
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -53,32 +63,47 @@ jobs:
       UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
       UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
     steps:
-      - name: Check out the calling game repository
-        uses: actions/checkout@v4
-        with:
-          lfs: true
-      - name: Verify Unity activation secrets before using runner time
+      - name: Verify this build repository's Unity license secrets
         shell: bash
         run: |
           if [[ -z "$UNITY_LICENSE" || -z "$UNITY_EMAIL" || -z "$UNITY_PASSWORD" ]]; then
-            echo "::error::Add UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD to the game repository's Actions secrets. See https://game.ci/docs/github/activation/."
+            echo "::error::Add UNITY_LICENSE, UNITY_EMAIL, and UNITY_PASSWORD to Settings > Secrets and variables > Actions in this build repository."
             exit 1
           fi
-      - name: Cache Unity Library
+      - name: Check out the selected game repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.project-repository }}
+          ref: ${{ inputs.project-branch }}
+          token: ${{ secrets.PROJECT_REPO_TOKEN || github.token }}
+          path: target-project
+          lfs: true
+          persist-credentials: false
+      - name: Check Unity project files
+        env:
+          PROJECT_PATH: ${{ inputs.project-path }}
+        shell: bash
+        run: |
+          project_root="target-project/$PROJECT_PATH"
+          if [[ ! -f "$project_root/Packages/manifest.json" || ! -f "$project_root/ProjectSettings/ProjectVersion.txt" ]]; then
+            echo "::error::The selected repository/path does not contain a Unity project."
+            exit 1
+          fi
+      - name: Cache selected project's Unity Library
         uses: actions/cache@v4
         with:
-          path: ${{ inputs.project-path }}/Library
-          key: Unity-Library-${{ inputs.unity-version }}-Android-${{ hashFiles(format('{0}/Packages/manifest.json', inputs.project-path), format('{0}/ProjectSettings/ProjectVersion.txt', inputs.project-path)) }}
+          path: target-project/${{ inputs.project-path }}/Library
+          key: Unity-Library-${{ inputs.unity-version }}-Android-${{ hashFiles(format('target-project/{0}/Packages/manifest.json', inputs.project-path), format('target-project/{0}/ProjectSettings/ProjectVersion.txt', inputs.project-path)) }}
           restore-keys: |
             Unity-Library-${{ inputs.unity-version }}-Android-
-      - name: Build APK
+      - name: Build the selected project
         uses: game-ci/unity-builder@v6
         with:
-          projectPath: ${{ inputs.project-path }}
+          projectPath: target-project/${{ inputs.project-path }}
           unityVersion: ${{ inputs.unity-version }}
           targetPlatform: Android
           androidExportType: androidPackage
-          buildsPath: build
+          buildsPath: Builds
           buildMethod: ${{ inputs.build-method }}
       - name: Confirm APK output
         env:
@@ -98,7 +123,7 @@ jobs:
           retention-days: 14
 
   prerelease:
-    name: Publish optional test prerelease
+    name: Publish optional test APK prerelease
     if: ${{ inputs.publish-prerelease }}
     needs: build
     runs-on: ubuntu-latest
@@ -110,10 +135,10 @@ jobs:
         with:
           name: ${{ inputs.artifact-name }}
           path: release-apk
-      - name: Publish test prerelease to calling repository
+      - name: Publish test APK in the build repository
         env:
           GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
+          PROJECT_REPOSITORY: ${{ inputs.project-repository }}
           RUN_NUMBER: ${{ github.run_number }}
         shell: bash
         run: |
@@ -122,9 +147,11 @@ jobs:
             echo "::error::The downloaded artifact did not contain an APK."
             exit 1
           fi
-          tag="unity-android-test-$RUN_NUMBER"
+          safe_project="${PROJECT_REPOSITORY//\//-}"
+          safe_project="${safe_project//./-}"
+          tag="unity-${safe_project}-${RUN_NUMBER}"
           gh release create "$tag" "$apk_path" \
-            --repo "$REPOSITORY" \
-            --title "Unity Android Test #$RUN_NUMBER" \
-            --notes "Test APK from workflow run $RUN_NUMBER. This is a development build, not a production release." \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Unity Android Test: $PROJECT_REPOSITORY #$RUN_NUMBER" \
+            --notes "Development APK built from $PROJECT_REPOSITORY. This is a test artifact, not a production release." \
             --prerelease
