@@ -1,4 +1,4 @@
-name: Unity Source Checks
+name: Unity Workflow Source Checks
 
 on:
   push:
@@ -14,17 +14,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check Unity project scaffold
+      - name: Check reusable workflow and example
         run: |
           python3 - <<'PY'
-          import json
           from pathlib import Path
-          manifest = json.loads(Path("Packages/manifest.json").read_text())
-          assert "com.unity.render-pipelines.universal" in manifest["dependencies"]
-          assert Path("ProjectSettings/ProjectVersion.txt").read_text().startswith("m_EditorVersion: 6000.3.")
-          for name in ("Assets/Scripts/BenchmarkFlight.cs", "Assets/Editor/EclipseBuild.cs"):
-              assert Path(name).is_file(), name
-          build = Path("Assets/Editor/EclipseBuild.cs").read_text()
-          assert 'BuildAndroid()' in build and 'BuildTarget.Android' in build
-          print("Source scaffold, JSON, and build entrypoint: OK")
+
+          workflow = Path(".github/workflows/unity-android.yml").read_text()
+          example = Path("examples/unity-android-caller.yml").read_text()
+          readme = Path("README.md").read_text()
+
+          assert "workflow_call:" in workflow
+          assert "game-ci/unity-builder@v6" in workflow
+          assert "UNITY_LICENSE" in workflow and "UNITY_EMAIL" in workflow and "UNITY_PASSWORD" in workflow
+          assert "workflow_dispatch:" in example
+          assert "publish-prerelease: false" in example
+          assert "Eclipse-Hollow-Sky-Unity." in readme
+          assert not Path("Assets").exists()
+          assert not Path("Blender").exists()
+          print("Shared workflow layout: OK")
           PY

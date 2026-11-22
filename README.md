@@ -1,38 +1,46 @@
-# Eclipse: Hollow Sky — Unity Android Benchmark
+# Unity Android Build Foundation
 
-A **separate**, free-tool Unity 6.3 LTS / URP Android flight-and-rendering benchmark. This is **not** the Godot or Stride game repository.
+This repository contains shared GitHub Actions automation for Unity Android projects. Game source, Blender assets, and Unity project settings belong in each game's own repository.
 
-## Status
+## Use it from a game repository
 
-- Source scaffold and build automation only until a Unity CI build completes successfully.
-- A scene and URP renderer are generated in Unity by `EclipseBuild.PrepareScene`.
-- The Android build is **manual** (`Actions > Unity Android APK > Run workflow`) to avoid wasting runner time before Unity licensing is configured.
-- Do not call a GitHub Actions run a working APK until the build and artifact upload are verified.
+Copy `examples/unity-android-caller.yml` into the game's `.github/workflows/unity-android.yml`. Set the Unity version, build method, output APK path, and artifact name to match that project. The reusable workflow checks out the **calling game's repository**, not this build repository.
 
-## Unity project
+The example starts only when manually triggered from the game's **Actions** tab. The build output is uploaded as a 14-day workflow artifact. Optional prerelease publishing is off by default; turn it on in the caller only when you want a downloadable test APK attached to a release in the game repo.
 
-Open this repository in **Unity 6000.3.27f2** with Android Build Support, SDK/NDK and OpenJDK installed. In the Unity menu choose **Eclipse > Prepare Benchmark Scene**, then open `Assets/Scenes/Benchmark.unity` and press Play.
+## One-time license setup per game repo
 
-The first test creates a simple stylized floating-city course and a flyable prototype. It is a **pipeline/controls smoke test**, not a graphical-quality milestone or apples-to-apples engine benchmark yet.
+For a Unity Personal license, add these repository Actions secrets:
 
-## CI / first APK
+- `UNITY_LICENSE`: contents of the activated `.ulf` license file
+- `UNITY_EMAIL`: Unity account email
+- `UNITY_PASSWORD`: Unity account password
 
-1. Activate a **Unity Personal** license through Unity Hub. Follow the [current GameCI guide](https://game.ci/docs/github/activation/). GameCI documents a `.ulf` file and three repository secrets: `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD`. Keep credentials in **GitHub Actions secrets**, never in source code, issues, or chats.
-2. Repository > **Settings > Secrets and variables > Actions**; add the three secrets. (The pipeline will stop early with a useful message if they are missing.)
-3. In **Actions**, run **Unity Android APK** manually. After a successful build, download the `Eclipse-Hollow-Sky-Unity-APK` artifact from that workflow or get the APK from the new **pre-release** on the repository Releases page.
-4. Check the APK on a real Android device; emulator startup alone does not establish graphics performance or stability.
+Follow [GameCI's current activation guide](https://game.ci/docs/github/activation/). Keep all three values in the **game repository's** Actions secrets. The caller maps them explicitly to the reusable workflow; they are not stored in this repository or in source files.
 
-**Signing:** Without a persistent Android signing key, development APK signatures may vary between builds, requiring an uninstall before reinstalling. Later configure a dedicated test keystore in secrets for install-over-upgrades; do not use an exposed/public signing key for a release build.
+A Personal license may require the manual CI activation process described by GameCI. The workflow checks that the secrets are present before spending time on Unity startup.
 
-## Benchmark criteria
+## Shared build behavior
 
-Record Android model, resolution, Unity build number, renderer (Vulkan/OpenGLES3), average and 1% low FPS, CPU/GPU frame times where available, draw calls, memory, and device temperature. Compare identical camera paths and content with Godot and Stride before choosing an engine.
+- Unity version is an explicit input and must include the full revision suffix.
+- Android APK builds use the project's own static Unity Editor build method.
+- The caller chooses the output path and artifact name.
+- Unity's generated `Library` directory is cached separately per calling repository and Unity version.
+- The optional prerelease job requires the caller to grant `contents: write`. It publishes to the game repository, not this workflow repository.
 
-## Files
+## Repository layout
 
-- `Assets/Scripts/BenchmarkFlight.cs`: lightweight flight controls, geometry and on-screen telemetry.
-- `Assets/Editor/EclipseBuild.cs`: deterministic URP scene setup and Android build entry point.
-- `.github/workflows/source-checks.yml`: no-license repository checks on push.
-- `.github/workflows/unity-android.yml`: on-demand Unity / Android APK + artifact + pre-release.
+- `.github/workflows/unity-android.yml`: reusable Android build workflow.
+- `examples/unity-android-caller.yml`: minimal workflow to copy into a game repository.
+- `.github/workflows/source-checks.yml`: checks the workflow foundation without launching Unity.
 
-License: The project is a prototype; only original code and primitive geometry are included.
+## Current project split
+
+- **Build foundation:** this repository.
+- **Eclipse Hollow Sky prototype:** [Unity-project-](https://github.com/tpylman90-ctrl/Unity-project-).
+
+The prototype's Unity scripts, Blender generators, assets, and project settings have been moved to the game repo. They remain in this repository's earlier commit history as well.
+
+## Versioning
+
+Callers currently reference `@main` so they can use the latest shared workflow. Once the workflow is settled, pin callers to a reviewed tag or commit SHA for stable builds.
