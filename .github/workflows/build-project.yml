@@ -67,6 +67,19 @@ jobs:
           persist-credentials: false
           token: ${{ secrets.PROJECTS_READ_TOKEN || github.token }}
 
+      - name: Install Blender for reproducible asset export
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender
+          blender --version | head -1
+
+      - name: Generate the Blender building asset
+        shell: bash
+        run: |
+          blender --background --factory-startup --python project/Blender/BuildingInspection/generate_building.py
+          test -s project/Assets/Resources/Inspection/HaloSpire.fbx
+
       - name: Cache Unity Library
         uses: actions/cache@v4
         with:
