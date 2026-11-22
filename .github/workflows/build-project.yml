@@ -1,0 +1,106 @@
+name: Build Selected Unity Project
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_repository:
+        description: "Unity project repository (owner/name)"
+        required: true
+        type: string
+        default: "tpylman90-ctrl/Flight-unity"
+      project_ref:
+        description: "Project branch, tag, or commit"
+        required: true
+        type: string
+        default: "main"
+      unity_version:
+        description: "Exact Unity Editor version"
+        required: true
+        type: string
+        default: "6000.3.27f2"
+      build_method:
+        description: "Fully qualified static Unity Editor build method"
+        required: true
+        type: string
+        default: "BuildingInspectionBuild.BuildAndroid"
+      artifact_name:
+        description: "Downloadable APK artifact name"
+        required: true
+        type: string
+        default: "Flight-unity-Inspection-APK"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-project.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: central-unity-build-${{ inputs.project_repository || 'tpylman90-ctrl/Flight-unity' }}-${{ inputs.project_ref || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Unity Android ARM64
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+    steps:
+      - name: Verify runner Unity activation secrets
+        shell: bash
+        run: |
+          if [[ -z "$UNITY_LICENSE" || -z "$UNITY_EMAIL" || -z "$UNITY_PASSWORD" ]]; then
+            echo "::error::Add UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD to this Unity runner repository's Actions secrets."
+            exit 1
+          fi
+
+      - name: Check out selected project source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.project_repository || 'tpylman90-ctrl/Flight-unity' }}
+          ref: ${{ inputs.project_ref || 'main' }}
+          path: project
+          persist-credentials: false
+          token: ${{ secrets.PROJECTS_READ_TOKEN || github.token }}
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: project/Library
+          key: Unity-Library-${{ inputs.project_repository || 'tpylman90-ctrl/Flight-unity' }}-${{ inputs.project_ref || 'main' }}-${{ inputs.unity_version || '6000.3.27f2' }}-${{ hashFiles('project/Packages/manifest.json', 'project/ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Unity-Library-${{ inputs.project_repository || 'tpylman90-ctrl/Flight-unity' }}-${{ inputs.project_ref || 'main' }}-${{ inputs.unity_version || '6000.3.27f2' }}-
+
+      - name: Build ARM64 Android APK
+        uses: game-ci/unity-builder@v6
+        with:
+          projectPath: project
+          unityVersion: ${{ inputs.unity_version || '6000.3.27f2' }}
+          targetPlatform: Android
+          androidExportType: androidPackage
+          buildsPath: build
+          buildMethod: ${{ inputs.build_method || 'BuildingInspectionBuild.BuildAndroid' }}
+
+      - name: Find non-empty APK
+        shell: bash
+        run: |
+          apk="$(find project/build build/Android -maxdepth 3 -type f -name '*.apk' -size +0c -print -quit 2>/dev/null || true)"
+          if [[ -z "$apk" ]]; then
+            echo "::error::No non-empty APK was found under project/build or build/Android."
+            find project/build build/Android -maxdepth 4 -type f 2>/dev/null || true
+            exit 1
+          fi
+          echo "APK_PATH=$apk" >> "$GITHUB_ENV"
+          echo "Found $apk ($(stat -c%s "$apk") bytes)."
+
+      - name: Upload APK for phone review
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name || 'Flight-unity-Inspection-APK' }}
+          path: ${{ env.APK_PATH }}
+          if-no-files-found: error
+          retention-days: 14
