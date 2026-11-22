@@ -28,6 +28,7 @@ jobs:
           assert "game-ci/unity-builder@v6" in workflow
           assert "actions/upload-artifact@v4" in workflow
           assert "PROJECT_REPO_TOKEN" in workflow
+          assert "apt-get install -y blender" in workflow
           assert "Unity-project-" in readme
           assert not Path("Assets").exists()
           assert not Path("Blender").exists()

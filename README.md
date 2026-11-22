@@ -1,20 +1,20 @@
 # Eclipse Hollow Sky — Unity Build Runner
 
-This repository is the shared Unity build machine for our projects. It owns the Unity license secrets and runs Android builds from source held in separate game repositories.
+This repository is the shared Unity build machine for our projects. It owns the Unity license secrets and builds Android APKs from source held in separate game repositories.
 
-## Build a project
+## Build the first inspection project
 
 1. Open **Actions > Build Unity Project Android APK > Run workflow** in this repository.
-2. Enter the target project's `owner/repository`, branch, Unity version, and static build method. The default values are ready for [the first building-inspection project](https://github.com/tpylman90-ctrl/Unity-project-).
-3. Start the run. This workflow checks out that project, builds an Android ARM64 APK with this repository's Unity secrets, and stores the APK here as a workflow artifact. The optional prerelease is enabled by default and is also published here.
+2. Keep the default target `tpylman90-ctrl/Unity-project-`, branch `main`, Unity version, and build method.
+3. Start the run. The workflow checks out the project here, generates its Blender asset library, builds an Android ARM64 APK using this repository's Unity license secrets, and uploads the APK here as a workflow artifact. A test prerelease is published in this build repository by default.
 
-The game source stays in the game repository. It does not need its own Unity license secrets.
+The game files remain in the project repository. **No Unity license secrets need to be copied there.** Run future builds the same way, changing the repository and build inputs for each project.
 
-## Unity license and repository access
+## Unity license and project access
 
-The build uses `UNITY_LICENSE`, `UNITY_EMAIL`, and `UNITY_PASSWORD` from **this repository's** Actions secrets. These are already configured for this runner. Do not copy them into game repositories or commit them to source.
+The build reads `UNITY_LICENSE`, `UNITY_EMAIL`, and `UNITY_PASSWORD` from this repository's Actions secrets. These are already configured for this runner. Do not copy them into game repositories or commit them to source.
 
-Public project repositories can be checked out directly. For a private project repository, add a read-only `PROJECT_REPO_TOKEN` secret here so the runner can check it out.
+Public project repositories can be checked out directly. For a private project repository, add a read-only `PROJECT_REPO_TOKEN` secret here.
 
 ## Build inputs
 
@@ -29,12 +29,12 @@ Public project repositories can be checked out directly. For a private project r
 | `artifact-name` | Workflow artifact name |
 | `publish-prerelease` | Attach the APK to a test prerelease in this build repository |
 
-For another project, set its build method and APK path to match the code in that project. The optional private-repository token needs only read access.
+The workflow only installs Blender when the selected project includes `Blender/ViewingProject/generate_assets.py`. That keeps Blender-authored source and generated Unity assets in the game repo; the runner creates the OBJ/MTL and facade atlas before the Unity build.
 
-## What stays here
+## Repository contents
 
 - `.github/workflows/unity-android.yml`: central manual build and APK publishing workflow.
-- `.github/workflows/source-checks.yml`: checks that this repository contains only shared build infrastructure.
-- The Unity license secrets and optional private-project checkout token.
+- `.github/workflows/source-checks.yml`: lightweight checks for this build runner.
+- Unity license secrets and, optionally, a read-only private-project token.
 
-Game code, Blender source files, and generated assets belong in their respective game repositories.
+Game code, Blender source files, and generated assets stay in their respective game repositories.
