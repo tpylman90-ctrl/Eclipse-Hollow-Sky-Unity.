@@ -1,4 +1,4 @@
-name: Unity Workflow Source Checks
+name: Unity Runner Source Checks
 
 on:
   push:
@@ -10,26 +10,22 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  validate-runner:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check reusable workflow and example
+      - name: Verify runner and project split
+        shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          workflow = Path(".github/workflows/unity-android.yml").read_text()
-          example = Path("examples/unity-android-caller.yml").read_text()
-          readme = Path("README.md").read_text()
-
-          assert "workflow_call:" in workflow
-          assert "game-ci/unity-builder@v6" in workflow
-          assert "UNITY_LICENSE" in workflow and "UNITY_EMAIL" in workflow and "UNITY_PASSWORD" in workflow
-          assert "workflow_dispatch:" in example
-          assert "publish-prerelease: false" in example
-          assert "Eclipse-Hollow-Sky-Unity." in readme
-          assert not Path("Assets").exists()
-          assert not Path("Blender").exists()
-          print("Shared workflow layout: OK")
-          PY
+          test -f .github/workflows/unity-android.yml
+          test -f .github/workflows/build-project.yml
+          grep -q "workflow_call:" .github/workflows/unity-android.yml
+          grep -q "workflow_dispatch:" .github/workflows/build-project.yml
+          grep -q "tpylman90-ctrl/Flight-unity" .github/workflows/build-project.yml
+          grep -q "game-ci/unity-builder@v6" .github/workflows/build-project.yml
+          grep -q "secrets.UNITY_LICENSE" .github/workflows/build-project.yml
+          grep -q "actions/upload-artifact@v4" .github/workflows/build-project.yml
+          grep -q "Flight-unity" README.md
+          test ! -e Assets
+          test ! -e Blender
+          echo "Central Unity runner configuration: OK"
