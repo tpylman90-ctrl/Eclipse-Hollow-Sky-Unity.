@@ -1,0 +1,124 @@
+name: Neon Foundry Racing - Unity Android Garage Preview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/neonfoundry-unity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neonfoundry-unity-garage-main
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Build Neon Foundry Unity for Android ARM64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+    steps:
+      - name: Verify existing Unity license secrets
+        shell: bash
+        run: |
+          test -n "$UNITY_LICENSE"
+          test -n "$UNITY_EMAIL"
+          test -n "$UNITY_PASSWORD"
+      - name: Check out isolated game project
+        uses: actions/checkout@v4
+        with:
+          repository: tpylman90-ctrl/NeonFoundry-Racing
+          ref: main
+          path: target-project
+          persist-credentials: false
+          token: ${{ secrets.PROJECT_REPO_TOKEN || github.token }}
+      - name: Verify Unity project contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s target-project/unity/Packages/manifest.json
+          grep -q "6000.3.27f2" target-project/unity/ProjectSettings/ProjectVersion.txt
+          grep -q "NeonFoundryUnityBuild.BuildAndroid" target-project/unity/README.md
+          test -s target-project/unity/Blender/FoundryPreview/generate_assets.py
+      - name: Install Blender
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+          blender --version | head -1
+      - name: Build original Blender craft and garage assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --background --factory-startup --python target-project/unity/Blender/FoundryPreview/generate_assets.py 2>&1 | tee blender-forge.log
+          grep -q NEON_FOUNDRY_UNITY_BLENDER_OK blender-forge.log
+          test -s target-project/unity/Assets/Resources/Foundry/ForgeReviewCraft.obj
+          test -s target-project/unity/Assets/Resources/Foundry/FoundryGarage.obj
+          test -s target-project/unity/Assets/Resources/Foundry/ForgeReviewCraft.mtl
+          test -s target-project/unity/Assets/Resources/Foundry/FoundryGarage.mtl
+      - name: Cache Unity library
+        uses: actions/cache@v4
+        with:
+          path: target-project/unity/Library
+          key: neonfoundry-unity6000-android-${{ hashFiles('target-project/unity/Packages/manifest.json', 'target-project/unity/ProjectSettings/ProjectVersion.txt', 'target-project/unity/Assets/**/*.cs') }}
+          restore-keys: |
+            neonfoundry-unity6000-android-
+      - name: Build Android ARM64 APK
+        uses: game-ci/unity-builder@v6
+        with:
+          projectPath: target-project/unity
+          unityVersion: 6000.3.27f2
+          targetPlatform: Android
+          androidExportType: androidPackage
+          buildsPath: target-project/unity/Builds
+          buildMethod: NeonFoundryUnityBuild.BuildAndroid
+      - name: Verify Android APK output
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=target-project/unity/Builds/Android/NeonFoundry-Unity-Garage.apk
+          test -s "$apk"
+          test "$(stat -c %s "$apk")" -gt 1000000
+          sha256sum "$apk" | tee neonfoundry-apk-sha256.txt
+          ls -lh "$apk"
+      - name: Upload phone review APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonFoundry-Unity-Garage-${{ github.run_number }}
+          path: |
+            target-project/unity/Builds/Android/NeonFoundry-Unity-Garage.apk
+            neonfoundry-apk-sha256.txt
+          retention-days: 21
+          if-no-files-found: error
+
+  release:
+    name: Publish direct-download development APK
+    needs: android
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download tested artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: NeonFoundry-Unity-Garage-${{ github.run_number }}
+          path: release-apk
+      - name: Publish development prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=release-apk/NeonFoundry-Unity-Garage.apk
+          test -s "$apk"
+          gh release create "neonfoundry-unity-${GITHUB_RUN_NUMBER}" "$apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Neon Foundry Unity garage preview #${GITHUB_RUN_NUMBER}" \
+            --notes "Android ARM64 garage inspection build from tpylman90-ctrl/NeonFoundry-Racing. Blender generated meshes and Unity URP. Technology preview; not yet a complete game." \
+            --prerelease
