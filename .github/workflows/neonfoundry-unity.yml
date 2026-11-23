@@ -78,6 +78,8 @@ jobs:
           androidExportType: androidPackage
           buildsPath: target-project/unity/Builds
           buildMethod: NeonFoundryUnityBuild.BuildAndroid
+          versioning: Custom
+          version: 0.1.${{ github.run_number }}
       - name: Verify Android APK output
         shell: bash
         run: |
