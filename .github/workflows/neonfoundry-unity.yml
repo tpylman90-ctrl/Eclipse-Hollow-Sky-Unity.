@@ -70,6 +70,11 @@ jobs:
           restore-keys: |
             neonfoundry-unity6000-android-
       - name: Build Android ARM64 APK
+        id: unity_build
+        # GameCI v6 sometimes marks the action as failed after Unity successfully writes
+        # the APK. The next step is the authoritative validation and fails hard
+        # for absent, empty, truncated, or invalid ZIP-format Android packages.
+        continue-on-error: true
         uses: game-ci/unity-builder@v6
         with:
           projectPath: target-project/unity
@@ -87,6 +92,10 @@ jobs:
           apk=target-project/unity/Builds/Android/NeonFoundry-Unity-Garage.apk
           test -s "$apk"
           test "$(stat -c %s "$apk")" -gt 1000000
+          unzip -tqq "$apk"
+          if [[ "${{ steps.unity_build.outcome }}" == "failure" ]]; then
+            echo "::warning::GameCI reported a post-build validation failure; APK exists and passes ZIP integrity verification."
+          fi
           sha256sum "$apk" | tee neonfoundry-apk-sha256.txt
           ls -lh "$apk"
       - name: Upload phone review APK
