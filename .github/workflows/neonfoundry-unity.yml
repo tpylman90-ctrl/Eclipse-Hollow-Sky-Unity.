@@ -129,8 +129,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apk=release-apk/NeonFoundry-Unity-Garage.apk
-          test -s "$apk"
+          echo "Downloaded artifact files:"
+          find release-apk -maxdepth 12 -type f -printf '%p (%s bytes)\\n'
+          apk="$(find release-apk -type f -name 'NeonFoundry-Unity-Garage.apk' -size +1000000c -print -quit)"
+          if [[ -z "$apk" ]]; then
+            echo "::error::No valid Neon Foundry APK found in artifact"
+            exit 1
+          fi
+          unzip -tqq "$apk"
           gh release create "neonfoundry-unity-${GITHUB_RUN_NUMBER}" "$apk" \
             --repo "$GITHUB_REPOSITORY" \
             --title "Neon Foundry Unity garage preview #${GITHUB_RUN_NUMBER}" \
