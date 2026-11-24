@@ -1,0 +1,64 @@
+name: Publish existing Neon Foundry Unity APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/neonfoundry-publish-existing.yml"
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful APK artifact build run ID"
+        required: true
+        default: "45298248699"
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-existing:
+    name: Publish verified Neon Foundry garage APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Retrieve successful Android APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: NeonFoundry-Unity-Garage-4
+          run-id: ${{ inputs.source_run_id || '45298248699' }}
+          repository: tpylman90-ctrl/Eclipse-Hollow-Sky-Unity.
+          github-token: ${{ github.token }}
+          path: recovered-apk
+      - name: Locate and validate the recovered APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Recovered files:"
+          find recovered-apk -maxdepth 12 -type f -printf '%p (%s bytes)\n'
+          apk="$(find recovered-apk -type f -name 'NeonFoundry-Unity-Garage.apk' -size +1000000c -print -quit)"
+          if [[ -z "$apk" ]]; then
+            echo "::error::Expected built APK not present in downloaded artifact"
+            exit 1
+          fi
+          unzip -tqq "$apk"
+          cp "$apk" "./NeonFoundry-Unity-Garage.apk"
+          sha256sum "./NeonFoundry-Unity-Garage.apk"
+      - name: Publish APK as direct-download GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="neonfoundry-unity-garage-4"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "./NeonFoundry-Unity-Garage.apk" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" "./NeonFoundry-Unity-Garage.apk" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Neon Foundry Unity garage inspection APK - Build 4" \
+              --notes "Android ARM64 development preview, built successfully by Unity. Compiled APK verified by SHA256 and ZIP-integrity checks, recovered from build run 45298248699." \
+              --prerelease
+          fi
+          echo "Download URL: https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/NeonFoundry-Unity-Garage.apk"
