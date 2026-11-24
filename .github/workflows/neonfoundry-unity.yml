@@ -46,6 +46,8 @@ jobs:
           grep -q "6000.3.27f2" target-project/unity/ProjectSettings/ProjectVersion.txt
           grep -q "NeonFoundryUnityBuild.BuildAndroid" target-project/unity/README.md
           test -s target-project/unity/Blender/FoundryPreview/generate_assets.py
+          test -s target-project/unity/Blender/FoundryPreview/upgrade_geometry.py
+          python3 -m py_compile target-project/unity/Blender/FoundryPreview/generate_assets.py target-project/unity/Blender/FoundryPreview/upgrade_geometry.py
       - name: Install Blender
         shell: bash
         run: |
@@ -62,6 +64,11 @@ jobs:
           test -s target-project/unity/Assets/Resources/Foundry/FoundryGarage.obj
           test -s target-project/unity/Assets/Resources/Foundry/ForgeReviewCraft.mtl
           test -s target-project/unity/Assets/Resources/Foundry/FoundryGarage.mtl
+          grep -q NEON_FOUNDRY_MOBILE_BATCHING_OK blender-forge.log
+          grep -q NEON_FOUNDRY_BAKED_TEXTURES_OK blender-forge.log
+          for name in NF_FLOOR_SURFACE NF_STEEL_BRUSHED NF_WALL_STAMPED NF_ARMOR_COATED NF_CARBON_WEAVE; do
+            test -s "target-project/unity/Assets/Resources/Foundry/Textures/${name}.png"
+          done
       - name: Cache Unity library
         uses: actions/cache@v4
         with:
