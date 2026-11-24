@@ -83,6 +83,9 @@ jobs:
           androidExportType: androidPackage
           buildsPath: target-project/unity/Builds
           buildMethod: NeonFoundryUnityBuild.BuildAndroid
+          # Known-working CLI used by the central Eclipse Unity workflow.
+          # Avoids 'latest' GitHub release API requests that return HTTP 403.
+          cliVersion: v0.1.77
           versioning: Custom
           version: 0.1.${{ github.run_number }}
       - name: Verify Android APK output
