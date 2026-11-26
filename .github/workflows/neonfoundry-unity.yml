@@ -47,7 +47,8 @@ jobs:
           grep -q "NeonFoundryUnityBuild.BuildAndroid" target-project/unity/README.md
           test -s target-project/unity/Blender/FoundryPreview/generate_assets.py
           test -s target-project/unity/Blender/FoundryPreview/upgrade_geometry.py
-          python3 -m py_compile target-project/unity/Blender/FoundryPreview/generate_assets.py target-project/unity/Blender/FoundryPreview/upgrade_geometry.py
+          test -s target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py
+          python3 -m py_compile target-project/unity/Blender/FoundryPreview/generate_assets.py target-project/unity/Blender/FoundryPreview/upgrade_geometry.py target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py
       - name: Install Blender
         shell: bash
         run: |
@@ -70,12 +71,39 @@ jobs:
           for name in NF_FLOOR_SURFACE NF_STEEL_BRUSHED NF_WALL_STAMPED NF_ARMOR_COATED NF_CARBON_WEAVE; do
             test -s "target-project/unity/Assets/Resources/Foundry/Textures/${name}.png"
           done
+      - name: Download published NF-BW01 R6 inspection GLB
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p target-project/.inspection-source
+          gh release download nf-bw01-gate04-r6-hmi-2 \
+            --repo tpylman90-ctrl/NeonFoundry-Racing \
+            --pattern NF_BW01_R6_HMI_INSPECTION.glb \
+            --dir target-project/.inspection-source
+          test "$(stat -c %s target-project/.inspection-source/NF_BW01_R6_HMI_INSPECTION.glb)" -gt 1000000
+      - name: Convert R6 GLB to Unity-ready FBX and extract real LCD texture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py
+          blender --background --factory-startup \
+            --python target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py \
+            -- target-project/.inspection-source/NF_BW01_R6_HMI_INSPECTION.glb \
+               target-project/unity/Assets/Resources/Foundry \
+            2>&1 | tee blender-bw01-import.log
+          grep -q NF_BW01_UNITY_ASSET_CONVERT_OK blender-bw01-import.log
+          test -s target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_UnityInspection.fbx
+          test -s target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_HMI_LCD.png
+          test -s target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_Inspection_Source.json
       - name: Cache Unity library
         uses: actions/cache@v4
         with:
           path: target-project/unity/Library
-          key: neonfoundry-unity6000-android-${{ hashFiles('target-project/unity/Packages/manifest.json', 'target-project/unity/ProjectSettings/ProjectVersion.txt', 'target-project/unity/Assets/**/*.cs') }}
+          key: neonfoundry-unity6000-bw01-android-${{ hashFiles('target-project/unity/Packages/manifest.json', 'target-project/unity/ProjectSettings/ProjectVersion.txt', 'target-project/unity/Assets/**/*.cs', 'target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py') }}
           restore-keys: |
+            neonfoundry-unity6000-bw01-android-
             neonfoundry-unity6000-android-
       - name: Build Android ARM64 APK
         id: unity_build
