@@ -97,6 +97,16 @@ jobs:
           test -s target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_UnityInspection.fbx
           test -s target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_HMI_LCD.png
           test -s target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_Inspection_Source.json
+          python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path("target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_Inspection_Source.json")
+          j=json.loads(p.read_text())
+          roles=j["unity_material_roles"]
+          assert roles.get("LCD",0)>=1, roles
+          assert roles.get("GLASS",0)>=5, roles
+          assert j["triangles"]>=150000 and j["meshes"]>=100
+          print("NF_BW01_R6_CONVERTED_FOR_UNITY", j["triangles"], j["meshes"], roles)
+          PY
       - name: Cache Unity library
         uses: actions/cache@v4
         with:
