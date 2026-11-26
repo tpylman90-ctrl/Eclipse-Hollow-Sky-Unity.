@@ -68,6 +68,7 @@ jobs:
           test -s target-project/unity/Assets/Resources/Foundry/FoundryGarage.mtl
           grep -q NEON_FOUNDRY_MOBILE_BATCHING_OK blender-forge.log
           grep -q NEON_FOUNDRY_BAKED_TEXTURES_OK blender-forge.log
+          grep -q "stdlib-only textures (no NumPy)" blender-forge.log
           for name in NF_FLOOR_SURFACE NF_STEEL_BRUSHED NF_WALL_STAMPED NF_ARMOR_COATED NF_CARBON_WEAVE; do
             test -s "target-project/unity/Assets/Resources/Foundry/Textures/${name}.png"
           done
