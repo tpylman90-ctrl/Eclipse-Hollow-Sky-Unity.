@@ -89,11 +89,20 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py
-          blender --background --factory-startup \
-            --python target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py \
-            -- target-project/.inspection-source/NF_BW01_R6_HMI_INSPECTION.glb \
-               target-project/unity/Assets/Resources/Foundry \
-            2>&1 | tee blender-bw01-import.log
+          # The Ubuntu Blender package can omit NumPy, which its own glTF
+          # importer needs. Use the Blender 4.3 image that built the verified R6.
+          docker run --rm -v "$GITHUB_WORKSPACE:/workspace" -w /workspace \
+            --entrypoint /bin/bash blenderkit/headless-blender:blender-4.3 \
+            -lc '
+              set -euo pipefail
+              BIN="$(command -v blender || true)"
+              if [[ -z "$BIN" ]]; then BIN="$(find / -maxdepth 8 -type f -name blender -executable 2>/dev/null | head -1)"; fi
+              test -x "$BIN"
+              "$BIN" --background --factory-startup \
+                --python target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py \
+                -- target-project/.inspection-source/NF_BW01_R6_HMI_INSPECTION.glb \
+                   target-project/unity/Assets/Resources/Foundry
+            ' 2>&1 | tee blender-bw01-import.log
           grep -q NF_BW01_UNITY_ASSET_CONVERT_OK blender-bw01-import.log
           test -s target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_UnityInspection.fbx
           test -s target-project/unity/Assets/Resources/Foundry/NF_BW01_R6_HMI_LCD.png
