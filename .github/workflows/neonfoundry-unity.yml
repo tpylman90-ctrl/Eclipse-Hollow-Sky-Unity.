@@ -48,7 +48,13 @@ jobs:
           test -s target-project/unity/Blender/FoundryPreview/generate_assets.py
           test -s target-project/unity/Blender/FoundryPreview/upgrade_geometry.py
           test -s target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py
+          test -s target-project/unity/Blender/FoundryPreview/verify_garage_layout.py
           python3 -m py_compile target-project/unity/Blender/FoundryPreview/generate_assets.py target-project/unity/Blender/FoundryPreview/upgrade_geometry.py target-project/unity/Blender/FoundryPreview/prepare_nf_bw01.py
+      - name: Verify raised overlook, staircase and under-deck R6 layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 target-project/unity/Blender/FoundryPreview/verify_garage_layout.py
       - name: Install Blender
         shell: bash
         run: |
