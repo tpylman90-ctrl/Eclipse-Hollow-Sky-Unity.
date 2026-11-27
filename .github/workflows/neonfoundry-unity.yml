@@ -54,7 +54,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m py_compile target-project/unity/Blender/FoundryPreview/verify_garage_layout.py
           python3 target-project/unity/Blender/FoundryPreview/verify_garage_layout.py
+          echo 'Deck corner + mobile stair ascent + NF-BW01 camera regression gate passed'
       - name: Install Blender
         shell: bash
         run: |
